@@ -160,11 +160,24 @@ kerneltrap()
   w_sstatus(sstatus);
 }
 
+struct proc proc[NPROC];
+
 void
 clockintr()
 {
   acquire(&tickslock);
   ticks++;
+
+  struct proc *p;
+  for(p = proc; p < &proc[NPROC]; p++) {
+    if (p->state == RUNNING)
+      p->rtime++;
+    else if (p->state == SLEEPING)
+      p->stime++;
+    else if (p->state == RUNNABLE)
+      p->retime++;      
+  }
+
   wakeup(&ticks);
   release(&tickslock);
 }

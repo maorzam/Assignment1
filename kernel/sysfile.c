@@ -503,3 +503,25 @@ sys_pipe(void)
   }
   return 0;
 }
+
+uint64
+sys_set_ps_priority(int n)
+{
+  if (n>=1 & n<=10){
+    struct proc *p = myproc();
+    p->ps_priority = n;
+    return 0;
+  }
+  return -1;
+}
+
+uint64
+sys_set_cfs_priority(int n)
+{
+  if (n>=0 & n<=2){
+    struct proc *p = myproc();
+    p->cfs_priority = n;
+    return 0;
+  }
+  return -1;
+}

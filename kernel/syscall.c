@@ -102,6 +102,9 @@ extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 extern uint64 sys_memsize(void);
+extern uint64 sys_set_ps_priority(int n);
+extern uint64 sys_set_cfs_priority(int n);
+
 
 
 // An array mapping syscall numbers from syscall.h
@@ -129,6 +132,8 @@ static uint64 (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 [SYS_memsize]   sys_memsize,
+[SYS_set_ps_priority]   sys_set_ps_priority,
+[SYS_set_cfs_priority]   sys_set_ps_priority,
 };
 
 void

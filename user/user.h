@@ -23,6 +23,9 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 int memsize(void);
+int set_ps_priority(int n);
+int set_cfs_priority(int n);
+
 
 
 // ulib.c

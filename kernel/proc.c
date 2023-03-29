@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include <limits.h>
 
 struct cpu cpus[NCPU];
 
@@ -48,13 +49,18 @@ void
 procinit(void)
 {
   struct proc *p;
-  
+
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
   for(p = proc; p < &proc[NPROC]; p++) {
+      struct proc *j;
       initlock(&p->lock, "proc");
       p->state = UNUSED;
       p->kstack = KSTACK((int) (p - proc));
+      p->ps_priority = 0;
+      p->accumulator = -1;
+      
+        
   }
 }
 
@@ -169,6 +175,8 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  p->accumulator = -1;
+  p->ps_priority = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -319,10 +327,30 @@ fork(void)
   release(&wait_lock);
 
   acquire(&np->lock);
+
+  np->ps_priority = 5;
+  set_accumulator(np);
+  np->retime = 0;
+  np->rtime = 0;
+  np->stime = 0;
+  np -> cfs_priority = p->cfs_priority;
+
   np->state = RUNNABLE;
+
   release(&np->lock);
 
   return pid;
+}
+
+void set_accumulator(struct proc *np) {
+    np->accumulator = INT_MAX;
+    struct proc *j;
+    for(j = proc; j < &proc[NPROC]; j++) {
+      if ((j->state == RUNNABLE | j->state == RUNNING) && j->accumulator < np->accumulator )
+        np->accumulator = j->accumulator;
+    }
+    if (np->accumulator == INT_MAX)
+      np->accumulator = 0;
 }
 
 // Pass p's abandoned children to init.
@@ -446,34 +474,76 @@ wait(uint64 addr, char* msg)
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
 void
-scheduler(void)
+scheduler(int policyID)
 {
-  struct proc *p;
-  struct cpu *c = mycpu();
-  
-  c->proc = 0;
-  for(;;){
-    // Avoid deadlock by ensuring that devices can interrupt.
-    intr_on();
+  switch (policyID) {
+    case 1:
+      struct proc *p;
+      struct cpu *c = mycpu();
+      c->proc = 0;
+      for(;;){
+        // Avoid deadlock by ensuring that devices can interrupt.
+        intr_on();
 
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+        int minAcc = INT_MAX;
+        struct proc *toRun = -1;
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
+        for(p = proc; p < &proc[NPROC]; p++) {
+          if ((p->state == RUNNABLE | p->state == RUNNING) && p->accumulator < minAcc){
+            minAcc = p->accumulator;
+            toRun = p;
+          }
+        }
+
+        if (toRun != -1) {
+          acquire(&toRun->lock);
+          p->state = RUNNING;
+          c->proc = toRun;
+          swtch(&c->context, &toRun->context);
+          c->proc = 0;
+          release(&p->lock);
+        }   
       }
-      release(&p->lock);
-    }
+      break;
+    case 2:
+      struct proc *p;
+      struct cpu *c = mycpu();
+      c->proc = 0;
+      for(;;){
+        // Avoid deadlock by ensuring that devices can interrupt.
+        intr_on();
+
+        int minVRT = INT_MAX;
+        struct proc *toRun = -1;
+
+        for(p = proc; p < &proc[NPROC]; p++) {
+          if ((p->state == RUNNABLE | p->state == RUNNING)){
+            int dfact = 75 + p->cfs_priority*25;
+            int currVRT = dfact* ((p->rtime)/(p->rtime + p->stime + p->retime));
+            if (currVRT < minVRT){
+              minVRT = currVRT;
+              toRun = p;
+            }
+          }
+        }
+        if (toRun != -1) {
+          acquire(&toRun->lock);
+          p->state = RUNNING;
+          c->proc = toRun;
+          swtch(&c->context, &toRun->context);
+          c->proc = 0;
+          release(&p->lock);
+        }   
+      }
+      break;
   }
+  
 }
+
+
+
+
+
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
@@ -509,6 +579,7 @@ yield(void)
   struct proc *p = myproc();
   acquire(&p->lock);
   p->state = RUNNABLE;
+  p->accumulator += p->ps_priority;
   sched();
   release(&p->lock);
 }
@@ -577,6 +648,7 @@ wakeup(void *chan)
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
         p->state = RUNNABLE;
+        set_accumulator(p);
       }
       release(&p->lock);
     }
@@ -598,6 +670,7 @@ kill(int pid)
       if(p->state == SLEEPING){
         // Wake process from sleep().
         p->state = RUNNABLE;
+        p->accumulator += p->ps_priority;
       }
       release(&p->lock);
       return 0;
