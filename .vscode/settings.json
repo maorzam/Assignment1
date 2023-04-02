@@ -5,6 +5,8 @@
         "defs.h": "c",
         "*.asm": "c",
         "stat.h": "c",
-        "cstdlib": "c"
+        "cstdlib": "c",
+        "stdio.h": "c",
+        "stddef.h": "c"
     },
 }

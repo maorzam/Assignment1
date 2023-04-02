@@ -47,7 +47,7 @@ forktest(void)
 
   print("fork test\n");
   3a:	00000517          	auipc	a0,0x0
-  3e:	42650513          	addi	a0,a0,1062 # 460 <memsize+0xa>
+  3e:	43650513          	addi	a0,a0,1078 # 470 <set_cfs_priority+0xa>
   42:	00000097          	auipc	ra,0x0
   46:	fbe080e7          	jalr	-66(ra) # 0 <print>
 
@@ -71,7 +71,7 @@ forktest(void)
   if(n == N){
     print("fork claimed to work N times!\n");
   64:	00000517          	auipc	a0,0x0
-  68:	40c50513          	addi	a0,a0,1036 # 470 <memsize+0x1a>
+  68:	41c50513          	addi	a0,a0,1052 # 480 <set_cfs_priority+0x1a>
   6c:	00000097          	auipc	ra,0x0
   70:	f94080e7          	jalr	-108(ra) # 0 <print>
     exit(1,0);
@@ -117,7 +117,7 @@ forktest(void)
 
   print("fork test OK\n");
   bc:	00000517          	auipc	a0,0x0
-  c0:	40450513          	addi	a0,a0,1028 # 4c0 <memsize+0x6a>
+  c0:	41450513          	addi	a0,a0,1044 # 4d0 <set_cfs_priority+0x6a>
   c4:	00000097          	auipc	ra,0x0
   c8:	f3c080e7          	jalr	-196(ra) # 0 <print>
 }
@@ -129,7 +129,7 @@ forktest(void)
   d6:	8082                	ret
       print("wait stopped early\n");
   d8:	00000517          	auipc	a0,0x0
-  dc:	3b850513          	addi	a0,a0,952 # 490 <memsize+0x3a>
+  dc:	3c850513          	addi	a0,a0,968 # 4a0 <set_cfs_priority+0x3a>
   e0:	00000097          	auipc	ra,0x0
   e4:	f20080e7          	jalr	-224(ra) # 0 <print>
       exit(1,0);
@@ -139,7 +139,7 @@ forktest(void)
   f0:	2ca080e7          	jalr	714(ra) # 3b6 <exit>
     print("wait got too many\n");
   f4:	00000517          	auipc	a0,0x0
-  f8:	3b450513          	addi	a0,a0,948 # 4a8 <memsize+0x52>
+  f8:	3c450513          	addi	a0,a0,964 # 4b8 <set_cfs_priority+0x52>
   fc:	00000097          	auipc	ra,0x0
  100:	f04080e7          	jalr	-252(ra) # 0 <print>
     exit(1,0);
@@ -828,3 +828,23 @@ memsize:
  458:	00000073          	ecall
  ret
  45c:	8082                	ret
+
+000000000000045e <set_ps_priority>:
+.global set_ps_priority
+set_ps_priority:
+ li a7, SYS_set_ps_priority
+ 45e:	48dd                	li	a7,23
+ ecall
+ 460:	00000073          	ecall
+ ret
+ 464:	8082                	ret
+
+0000000000000466 <set_cfs_priority>:
+.global set_cfs_priority
+set_cfs_priority:
+ li a7, SYS_set_cfs_priority
+ 466:	48e1                	li	a7,24
+ ecall
+ 468:	00000073          	ecall
+ ret
+ 46c:	8082                	ret

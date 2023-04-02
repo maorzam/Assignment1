@@ -6,6 +6,7 @@
 #include "proc.h"
 #include "defs.h"
 #include <limits.h>
+#include  <stddef.h>
 
 struct cpu cpus[NCPU];
 
@@ -53,14 +54,11 @@ procinit(void)
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
   for(p = proc; p < &proc[NPROC]; p++) {
-      struct proc *j;
       initlock(&p->lock, "proc");
       p->state = UNUSED;
       p->kstack = KSTACK((int) (p - proc));
       p->ps_priority = 0;
       p->accumulator = -1;
-      
-        
   }
 }
 
@@ -282,6 +280,17 @@ growproc(int n)
   return 0;
 }
 
+void set_accumulator(struct proc *np) {
+    np->accumulator = INT_MAX;
+    struct proc *j;
+    for(j = proc; j < &proc[NPROC]; j++) {
+      if (((j->state == RUNNABLE) | (j->state == RUNNING)) && (j->accumulator < np->accumulator) )
+        np->accumulator = j->accumulator;
+    }
+    if (np->accumulator == INT_MAX)
+      np->accumulator = 0;
+}
+
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
 int
@@ -342,16 +351,7 @@ fork(void)
   return pid;
 }
 
-void set_accumulator(struct proc *np) {
-    np->accumulator = INT_MAX;
-    struct proc *j;
-    for(j = proc; j < &proc[NPROC]; j++) {
-      if ((j->state == RUNNABLE | j->state == RUNNING) && j->accumulator < np->accumulator )
-        np->accumulator = j->accumulator;
-    }
-    if (np->accumulator == INT_MAX)
-      np->accumulator = 0;
-}
+
 
 // Pass p's abandoned children to init.
 // Caller must hold wait_lock.
@@ -432,6 +432,8 @@ wait(uint64 addr, char* msg)
       if(pp->parent == p){
         // make sure the child isn't still in exit() or swtch().
         acquire(&pp->lock);
+        if (copyout(p->pagetable, *msg , (char*) &pp->exit_msg, strlen(pp->exit_msg)) < 0)
+          printf("error\n");
 
         havekids = 1;
         if(pp->state == ZOMBIE){
@@ -443,8 +445,7 @@ wait(uint64 addr, char* msg)
             release(&wait_lock);
             return -1;
           }
-          copyout(p->pagetable, *msg , p->exit_msg, 32);
-          freeproc(pp);
+        
           release(&pp->lock);
           release(&wait_lock);
           return pid;
@@ -476,26 +477,26 @@ wait(uint64 addr, char* msg)
 void
 scheduler(int policyID)
 {
-  switch (policyID) {
-    case 1:
-      struct proc *p;
-      struct cpu *c = mycpu();
+  struct proc *p;
+  struct cpu *c = mycpu();
+  // switch (policyID) {
+  //   case 1:
       c->proc = 0;
       for(;;){
         // Avoid deadlock by ensuring that devices can interrupt.
         intr_on();
 
         int minAcc = INT_MAX;
-        struct proc *toRun = -1;
+        struct proc *toRun = NULL;
 
         for(p = proc; p < &proc[NPROC]; p++) {
-          if ((p->state == RUNNABLE | p->state == RUNNING) && p->accumulator < minAcc){
+          if (((p->state == RUNNABLE) |(p->state == RUNNING)) && (p->accumulator < minAcc)){
             minAcc = p->accumulator;
             toRun = p;
           }
         }
 
-        if (toRun != -1) {
+        if (toRun != NULL) {
           acquire(&toRun->lock);
           p->state = RUNNING;
           c->proc = toRun;
@@ -504,40 +505,39 @@ scheduler(int policyID)
           release(&p->lock);
         }   
       }
-      break;
-    case 2:
-      struct proc *p;
-      struct cpu *c = mycpu();
-      c->proc = 0;
-      for(;;){
-        // Avoid deadlock by ensuring that devices can interrupt.
-        intr_on();
+      // break;
+    // case 2:
+    //   c->proc = 0;
+    //   for(;;){
+    //     // Avoid deadlock by ensuring that devices can interrupt.
+    //     intr_on();
 
-        int minVRT = INT_MAX;
-        struct proc *toRun = -1;
+    //     int minVRT = INT_MAX;
+    //     struct proc *toRun = NULL;
 
-        for(p = proc; p < &proc[NPROC]; p++) {
-          if ((p->state == RUNNABLE | p->state == RUNNING)){
-            int dfact = 75 + p->cfs_priority*25;
-            int currVRT = dfact* ((p->rtime)/(p->rtime + p->stime + p->retime));
-            if (currVRT < minVRT){
-              minVRT = currVRT;
-              toRun = p;
-            }
-          }
-        }
-        if (toRun != -1) {
-          acquire(&toRun->lock);
-          p->state = RUNNING;
-          c->proc = toRun;
-          swtch(&c->context, &toRun->context);
-          c->proc = 0;
-          release(&p->lock);
-        }   
-      }
-      break;
-  }
-  
+    //     for(p = proc; p < &proc[NPROC]; p++) {
+    //       acquire(&p->lock);
+    //       if ((p->state == RUNNABLE) | (p->state == RUNNING)){
+    //         int dfact = 75 + p->cfs_priority*25;
+    //         int currVRT = dfact* ((p->rtime)/(p->rtime + p->stime + p->retime));
+    //         if (currVRT < minVRT){
+    //           minVRT = currVRT;
+    //           toRun = p;
+    //         }
+    //       }
+    //       release(&p->lock);
+    //     }
+    //     if (toRun != NULL) {
+    //       acquire(&toRun->lock);
+    //       toRun->state = RUNNING;
+    //       c->proc = toRun;
+    //       swtch(&c->context, &toRun->context);
+    //       c->proc = 0;
+    //       release(&toRun->lock);
+    //     }   
+    //   }
+    //   break;
+  // }
 }
 
 

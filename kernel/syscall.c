@@ -132,9 +132,12 @@ static uint64 (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 [SYS_memsize]   sys_memsize,
-[SYS_set_ps_priority]   sys_set_ps_priority,
-[SYS_set_cfs_priority]   sys_set_ps_priority,
 };
+
+// static uint64 (*syscalls1[])(int n) = {
+//   [SYS_set_ps_priority]   sys_set_ps_priority,
+//   [SYS_set_cfs_priority]   sys_set_cfs_priority,
+// };
 
 void
 syscall(void)
@@ -143,13 +146,28 @@ syscall(void)
   struct proc *p = myproc();
 
   num = p->trapframe->a7;
-  if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
-    // Use num to lookup the system call function for num, call it,
-    // and store its return value in p->trapframe->a0
-    p->trapframe->a0 = syscalls[num]();
-  } else {
-    printf("%d %s: unknown sys call %d\n",
-            p->pid, p->name, num);
-    p->trapframe->a0 = -1;
-  }
+
+
+  // if (num ==23 | num == 24){
+    if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+      // Use num to lookup the system call function for num, call it,
+      // and store its return value in p->trapframe->a0
+      p->trapframe->a0 = syscalls[num]();
+    } else {
+      printf("%d %s: unknown sys call %d\n",
+              p->pid, p->name, num);
+      p->trapframe->a0 = -1;
+    }
+  // }
+  // else {
+  //   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+  //     // Use num to lookup the system call function for num, call it,
+  //     // and store its return value in p->trapframe->a0
+  //     p->trapframe->a0 = syscalls[num]();
+  //   } else {
+  //     printf("%d %s: unknown sys call %d\n",
+  //             p->pid, p->name, num);
+  //     p->trapframe->a0 = -1;
+  //   }
+  // }
 }

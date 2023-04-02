@@ -131,14 +131,14 @@ runcmd(struct cmd *cmd)
 
   }
 
-  if (cmd->type != BACK) {
-  int status;
-        char message[32];
-        int pid = wait(&status, message);
-        if (pid > 0 && message[0] != '\0') {
-            printf("Process %d exited with message: %s\n", pid, message);
-        }
-}
+//   if (cmd->type != BACK) {
+//   int status;
+//         char message[32];
+//         int pid = wait(&status, message);
+//         if (pid > 0 && message[0] != '\0') {
+//             printf("Process %d exited with message: %s\n", pid, message);
+//         }
+// }
   exit(0,0);
 }
 
@@ -178,7 +178,9 @@ main(void)
     }
     if(fork1() == 0)
       runcmd(parsecmd(buf));
-    wait(0,0);
+    char msg[32];
+    wait(0,msg);
+    printf("%s\n",msg);
   }
   exit(0,0);
 }
